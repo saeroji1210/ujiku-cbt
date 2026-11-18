@@ -108,7 +108,7 @@ export function sanitize(input) {
           const okCls = ch.tagName === 'SPAN' && n === 'class' && a.value.split(/\s+/).every((c) => MATH_CLS.has(c));
           if (!okImg && !okTd && !okCls) ch.removeAttribute(a.name);
         }
-        if (ch.tagName === 'IMG' && !/^(https?:|data:image\/|\/)/i.test(ch.getAttribute('src') || '')) { ch.remove(); continue; }
+        if (ch.tagName === 'IMG' && !/^(https?:|data:image\/|blob:|\/)/i.test(ch.getAttribute('src') || '')) { ch.remove(); continue; }
         walk(ch);
       } else if (ch.nodeType !== 3) ch.remove();
     }
