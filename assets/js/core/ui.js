@@ -89,6 +89,7 @@ export function badge(status, label, dot = true) {
 export const statusLabel = (s) => (STATUS[s] || [0, s])[1];
 
 // ---------------- Sanitasi HTML soal ----------------
+const MATH_CLS = new Set(['m-f', 'm-n', 'm-d', 'm-rad', 'm-rb', 'm-ov', 'm-un', 'm-mx', 'm-big', 'm-lim', 'm-box', 'm-fn']);
 const ALLOWED = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'SUP', 'SUB', 'BR', 'P', 'DIV', 'SPAN', 'UL', 'OL', 'LI', 'IMG', 'TABLE', 'TBODY', 'THEAD', 'TR', 'TD', 'TH', 'CODE', 'PRE', 'BLOCKQUOTE']);
 export function sanitize(input) {
   if (!input) return '';
@@ -104,7 +105,8 @@ export function sanitize(input) {
           const n = a.name.toLowerCase();
           const okImg = ch.tagName === 'IMG' && (n === 'src' || n === 'alt' || n === 'width' || n === 'height');
           const okTd = (ch.tagName === 'TD' || ch.tagName === 'TH') && (n === 'colspan' || n === 'rowspan');
-          if (!okImg && !okTd) ch.removeAttribute(a.name);
+          const okCls = ch.tagName === 'SPAN' && n === 'class' && a.value.split(/\s+/).every((c) => MATH_CLS.has(c));
+          if (!okImg && !okTd && !okCls) ch.removeAttribute(a.name);
         }
         if (ch.tagName === 'IMG' && !/^(https?:|data:image\/|\/)/i.test(ch.getAttribute('src') || '')) { ch.remove(); continue; }
         walk(ch);
@@ -114,7 +116,7 @@ export function sanitize(input) {
   walk(doc.body.firstChild);
   return doc.body.firstChild.innerHTML;
 }
-export const plain = (h = '') => String(h).replace(/<\/?(sup|sub|b|i|u|s|strong|em|span|code)\b[^>]*>/gi, '').replace(/<img[^>]*>/gi, ' [gambar] ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
+export const plain = (h = '') => String(h).replace(/<span class="m-n m-d">/g, '/').replace(/<\/?(sup|sub|b|i|u|s|strong|em|span|code)\b[^>]*>/gi, '').replace(/<img[^>]*>/gi, ' [gambar] ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
 
 // ---------------- Toast ----------------
 let toastsEl;
