@@ -548,3 +548,4 @@ p { margin: 0; }
 }
 @media (min-width: 761px) { .show-sm { display: none !important; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+.auth-art .art, .banner .b-art { display: none !important; }
