@@ -628,3 +628,19 @@ p { margin: 0; }
 }
 @media (min-width: 761px) { .show-sm { display: none !important; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+
+/* ---- Rumus (hasil impor Word / Insert Equation) ---- */
+.m-f { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; margin: 0 .15em; line-height: 1.25; }
+.m-n { display: block; padding: 0 .2em; }
+.m-f > .m-d { border-top: 1.5px solid currentColor; }
+.m-lim { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; line-height: 1.1; font-size: .85em; }
+.m-lim > .m-big { font-size: 1.5em; line-height: 1; }
+.m-rad { white-space: nowrap; }
+.m-rb { border-top: 1.5px solid currentColor; padding: 0 .12em; margin-left: 1px; }
+.m-ov { text-decoration: overline; }
+.m-un { text-decoration: underline; }
+.m-box { border: 1px solid currentColor; padding: 0 .25em; }
+.m-fn { font-style: normal; }
+.m-mx { display: inline-block; vertical-align: middle; }
+.m-mx table { border-collapse: collapse; margin: 0; }
+.m-mx td { padding: 0 .5em; text-align: center; border: 0; }
