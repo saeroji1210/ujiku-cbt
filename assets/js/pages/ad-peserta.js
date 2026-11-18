@@ -8,7 +8,7 @@ export const prefetch = () => store.fetchOnce('peserta||1', () => load());
 
 export function printCards(list, me) {
   const lembaga = me.tenant?.nama || '', kode = me.tenant?.kode || '';
-  printDoc('Kartu Login Peserta', `<h1>Kartu Login Peserta UjiKu CBT</h1><div class="sub">${esc(lembaga)} · Kode lembaga: <b>${esc(kode)}</b> · Masuk di ${esc(api.APP_URL)}</div>
+  printDoc('Kartu Login Peserta', `<h1>Kartu Login Peserta UjiKu CBT</h1><div class="sub">${esc(lembaga)} · Kode lembaga: <b>${esc(kode)}</b> · Masuk di ${esc(api.APP_URL)}#/masuk?peserta=1&amp;kode=${esc(kode)}</div>
     <div class="kartu">${list.map((k) => `<div class="k"><div style="font-size:10px;color:#6B7280">${esc(lembaga)}</div><b>${esc(k.nama)}</b><div>Kelas ${esc(k.kelas || '-')}</div>
     <div style="margin-top:6px">Kode Lembaga: <b>${esc(kode)}</b></div><div>NIS: <b>${esc(k.nis)}</b></div><div>Sandi: <span class="s">${esc(k.sandi)}</span></div></div>`).join('')}</div>`);
 }
