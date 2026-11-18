@@ -7,8 +7,11 @@ import { LOGO } from './core/art.js';
 const ROUTES = [
   { p: '/masuk', m: 'login', shell: 'public' },
   { p: '/aktivasi', m: 'aktivasi', shell: 'public' },
+  { p: '/daftar', m: 'daftar', shell: 'public' },
+  { p: '/beranda', m: 'landing', shell: 'public' },
   { p: '/sa', m: 'sa-dashboard', role: ['super_admin'] },
   { p: '/sa/lembaga', m: 'sa-lembaga', role: ['super_admin'] },
+  { p: '/sa/pendaftaran', m: 'sa-pendaftaran', role: ['super_admin'] },
   { p: '/sa/poin', m: 'sa-poin', role: ['super_admin'] },
   { p: '/sa/server', m: 'sa-server', role: ['super_admin'] },
   { p: '/sa/pengaturan', m: 'sa-pengaturan', role: ['super_admin'] },
@@ -44,7 +47,7 @@ const MODES = {
 const MENUS = {
   super_admin: [
     ['g', 'Utama'], ['/sa', 'dashboard', 'Dashboard'],
-    ['g', 'Lembaga & Poin'], ['/sa/lembaga', 'domain', 'Kelola Lembaga'], ['/sa/poin', 'payments', 'Paket & Pembelian'], ['/sa/server', 'dns', 'Server Lokal'],
+    ['g', 'Lembaga & Poin'], ['/sa/lembaga', 'domain', 'Kelola Lembaga'], ['/sa/pendaftaran', 'how_to_reg', 'Pendaftaran Sekolah'], ['/sa/poin', 'payments', 'Paket & Pembelian'], ['/sa/server', 'dns', 'Server Lokal'],
     ['g', 'Sistem'], ['/sa/pengaturan', 'settings', 'Pengaturan'],
   ],
   admin: [
@@ -69,7 +72,7 @@ const BOTTOM = {
   pengawas: [['/pantau', 'visibility', 'Pantau'], ['/laporan', 'monitoring', 'Laporan']],
 };
 const QUICK = {
-  super_admin: [['/sa/lembaga?baru=1', 'add_business', 'Daftarkan lembaga'], ['/sa/poin?tab=pengajuan', 'fact_check', 'Verifikasi pembelian'], ['/sa/server', 'dns', 'Server lokal']],
+  super_admin: [['/sa/lembaga?baru=1', 'add_business', 'Daftarkan lembaga'], ['/sa/pendaftaran', 'how_to_reg', 'Pendaftaran sekolah'], ['/sa/poin?tab=pengajuan', 'fact_check', 'Verifikasi pembelian'], ['/sa/server', 'dns', 'Server lokal']],
   admin: [['/admin/ujian/baru', 'add_task', 'Buat jadwal ujian'], ['/impor', 'upload_file', 'Impor soal Word'], ['/pantau', 'fact_check', 'Pantau sesi']],
   guru: [['/bank?baru=1', 'library_add', 'Bank soal baru'], ['/impor', 'upload_file', 'Impor soal Word'], ['/laporan', 'insights', 'Hasil & analisis']],
   pengawas: [['/pantau', 'fact_check', 'Pantau sesi'], ['/laporan', 'monitoring', 'Laporan']],
@@ -135,7 +138,7 @@ api.onAuthChange((a) => { if (!a) { state.me = null; store.clearAll(); } });
 
 // ---------------- Render rute ----------------
 async function route() {
-  const { path, query } = parseHash();
+  let { path, query } = parseHash();
   state.lastHash = location.hash;
   const token = ++state.token;
   if (state.cleanup) { try { state.cleanup(); } catch {} state.cleanup = null; }
@@ -146,9 +149,15 @@ async function route() {
   if (path === '/' || path === '') {
     if (api.MODE === 'lokal') return go(api.peserta.get() ? '/ujian' : '/masuk', { replace: true });
     if (api.session()) {
-      try { const me = await loadMe(); if (me?.terdaftar && !me.nonaktif) return go(MODES[pickMode(me)].home, { replace: true }); } catch {}
+      try {
+        const me = await loadMe();
+        if (token !== state.token) return;
+        if (me?.terdaftar && !me.nonaktif) return go(MODES[pickMode(me)].home, { replace: true });
+        if (me) return renderNotRegistered(me);
+      } catch {}
     }
-    return go(api.peserta.get() ? '/ujian' : '/masuk', { replace: true });
+    if (api.peserta.get()) return go('/ujian', { replace: true });
+    path = '/beranda';   // pengunjung tanpa sesi: halaman beranda (landing)
   }
   const hit = match(path);
   if (!hit) return go('/', { replace: true });
@@ -308,10 +317,13 @@ const NOTIF_SRC = { super_admin: 'sa_dashboard', admin: 'ad_dashboard', pengawas
 async function notifItems() {
   const fn = NOTIF_SRC[state.mode];
   const d = await store.fetchOnce(fn, () => api.rpc(fn));
-  if (state.mode === 'super_admin') return [
+  if (state.mode === 'super_admin') {
+    const reg = await store.fetchOnce('sa_registrations|menunggu', () => api.rpc('sa_registrations', { status: 'menunggu' })).catch(() => null);
+    return [
+    ...(reg?.rows || []).slice(0, 5).map((r) => ({ t: r.created_at, label: `Pendaftaran baru — ${r.nama}`, href: '/sa/pendaftaran' })),
     ...(d.pengajuan || []).map((p) => ({ t: p.created_at, label: `Pembelian ${p.paket} — ${p.lembaga}`, href: '/sa/poin?tab=pengajuan' })),
     ...(d.aktivitas || []).slice(0, 5).map((a) => ({ t: a.waktu, label: (a.lembaga ? a.lembaga + ': ' : '') + a.aksi.replace(/_/g, ' '), href: '/sa' })),
-  ];
+  ]; }
   if (state.mode === 'admin') return (d.aktivitas || []).map((a) => ({ t: a.waktu, label: a.judul, href: a.warna === 'coral' ? '/pantau' : '/admin' }));
   if (state.mode === 'guru') return [
     ...(d.tanpa_kunci ? [{ t: new Date().toISOString(), label: `${d.tanpa_kunci} soal belum diberi kunci`, href: '/bank' }] : []),
@@ -373,8 +385,10 @@ function renderNotRegistered(me) {
     <div class="empty" style="padding:0"><div class="e-art">${icon(me.nonaktif ? 'person_off' : 'how_to_reg')}</div>
     <h3>${me.nonaktif ? 'Akun Anda dinonaktifkan' : 'Email belum terdaftar'}</h3>
     <p>${me.nonaktif ? 'Hubungi admin lembaga untuk mengaktifkan kembali akun' : 'Akun Google'} <b>${me.email}</b>
-    ${me.nonaktif ? '' : ' belum didaftarkan di UjiKu CBT. Minta admin lembaga (atau tim UjiKu) menambahkan email ini, lalu masuk kembali.'}</p>
-    <button class="btn primary mt-16" id="out">${icon('logout')} Masuk dengan akun lain</button></div></div></div>`.s;
+    ${me.nonaktif ? '' : ' belum didaftarkan di UjiKu CBT.'}</p>
+    ${me.nonaktif ? '' : html`<p class="small muted mt-8">Guru atau pengawas: minta admin sekolah Anda menambahkan email ini. Pengelola sekolah baru: daftarkan sekolah Anda.</p>
+      <a class="btn primary mt-16" href="#/daftar">${icon('domain_add')} Daftarkan sekolah Anda</a>`}
+    <button class="btn ${me.nonaktif ? 'primary' : 'secondary'} mt-16" id="out">${icon('logout')} Masuk dengan akun lain</button></div></div></div>`.s;
   $('#out').onclick = logout;
 }
 function renderFatal(e) {
