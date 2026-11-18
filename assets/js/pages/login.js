@@ -1,6 +1,6 @@
 import * as api from '../core/api.js';
 import { html, raw, icon, $, toast, busy } from '../core/ui.js';
-import { LOGO, HERO, GOOGLE } from '../core/art.js';
+import { LOGO, GOOGLE } from '../core/art.js';
 
 export default async function ({ el, query, go, title }) {
   title('Masuk');
@@ -12,7 +12,6 @@ export default async function ({ el, query, go, title }) {
     <section class="auth-art">
       <div class="row"><span class="logo-mark">${raw(LOGO)}</span><span class="logo-text" style="color:#fff">UjiKu CBT</span>
         ${lokal ? html`<span class="badge b-cyan" style="margin-left:8px">${icon('lan')} Server Lokal Sekolah</span>` : ''}</div>
-      <div class="art">${raw(HERO)}</div>
       <h1>Ujian lebih mudah,<br>nilai lebih cepat.</h1>
       <p>Platform ujian berbasis komputer untuk sekolah, bimbel, dan lembaga. Kerjakan dari HP, tablet, atau komputer — bahkan tanpa internet lewat server sekolah.</p>
     </section>
@@ -29,6 +28,7 @@ export default async function ({ el, query, go, title }) {
           <button class="btn-google" id="g-btn">${raw(GOOGLE)} Masuk dengan Google</button>
           <p class="hint mt-16" style="text-align:center">Untuk Super Admin, admin lembaga, guru, dan pengawas.<br>
             Email Google Anda harus sudah didaftarkan oleh admin.</p>
+          <a class="btn ghost block mt-16 hidden" id="daftar-link" href="#/daftar">${icon('domain_add')} Belum terdaftar? Daftarkan sekolah Anda</a>
         </div>
         <form id="f-peserta" class="col mt-24" autocomplete="on" novalidate>
           ${lokal ? '' : html`<div class="field"><label for="kode">Kode Lembaga</label>
@@ -57,6 +57,7 @@ export default async function ({ el, query, go, title }) {
     if (!api.configured) return toast('Belum dikonfigurasi', 'Isi config.js terlebih dahulu.', 'warn');
     api.signInWithGoogle(sessionStorage.getItem('ujk.next') || '#/');
   });
+  if (!lokal && api.configured) api.rpc('daftar_info', {}, { anon: true }).then((i) => { if (i?.mode && i.mode !== 'nonaktif') $('#daftar-link', el)?.classList.remove('hidden'); }).catch(() => {});
   $('#eye', el).addEventListener('click', () => { const i = $('#sandi', el); i.type = i.type === 'password' ? 'text' : 'password'; });
 
   $('#f-peserta', el).addEventListener('submit', (e) => {
