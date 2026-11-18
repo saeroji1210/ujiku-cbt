@@ -8,29 +8,45 @@ export default async function ({ el, query, go, title }) {
   let tab = lokal || query.peserta || localStorage.getItem('ujk.tab') === 'peserta' ? 'peserta' : 'staf';
   const kodeTersimpan = query.kode || localStorage.getItem('ujk.kode') || '';
 
-  el.innerHTML = html`<div class="auth">
-    <section class="auth-art">
-      <div class="row"><span class="logo-mark">${raw(LOGO)}</span><span class="logo-text" style="color:#fff">UjiKu CBT</span>
-        ${lokal ? html`<span class="badge b-cyan" style="margin-left:8px">${icon('lan')} Server Lokal Sekolah</span>` : ''}</div>
-      <h1>Ujian lebih mudah,<br>nilai lebih cepat.</h1>
-      <p>Platform ujian berbasis komputer untuk sekolah, bimbel, dan lembaga. Kerjakan dari HP, tablet, atau komputer — bahkan tanpa internet lewat server sekolah.</p>
+  const ljk = Array.from({ length: 16 }, (_, i) => html`<i>${[0, 1, 2, 3, 4].map((j) => html`<u class="${j === (i * 3 + 1) % 5 ? 'f' : ''}"></u>`)}</i>`);
+  el.innerHTML = html`<div class="msk">
+    <section class="msk-side">
+      <div class="msk-ljk" aria-hidden="true">${ljk}</div>
+      <div class="msk-brand">
+        <a href="${lokal ? '#/masuk' : '#/beranda'}" aria-label="UjiKu CBT, ke beranda"><span class="logo-mark">${raw(LOGO)}</span>UjiKu CBT</a>
+        ${lokal ? html`<span class="badge b-cyan">${icon('lan')} Server Lokal Sekolah</span>` : html`<a class="home-m" href="#/beranda">${icon('arrow_back')} Beranda</a>`}
+      </div>
+      <div class="msk-mid">
+        <h1>Ujian lebih mudah, nilai lebih cepat.</h1>
+        <p class="lead">Ujian berbasis komputer untuk sekolah, madrasah, bimbel, dan kampus. Dikerjakan dari HP, tablet, atau komputer.</p>
+        <div class="msk-pts">
+          ${[['task_alt', '#22A06B', 'Nilai keluar otomatis', 'Dihitung begitu siswa menekan Selesai.'],
+             ['shield', '#F7941D', 'Ujian lebih jujur', 'Soal dan opsi diacak, pindah aplikasi tercatat.'],
+             ['wifi_off', '#22B8E8', 'Tetap jalan tanpa internet', 'Lewat server lokal di sekolah.']]
+            .map(([ic, c, j, t]) => html`<div><span class="ic" style="background:${c}">${icon(ic)}</span><div><b>${j}</b><small>${t}</small></div></div>`)}
+        </div>
+      </div>
     </section>
-    <section class="auth-form">
-      <div class="auth-card">
-        <h2 style="font-size:24px">Masuk ke UjiKu CBT</h2>
-        <p class="muted mt-4">${lokal ? 'Masuk sebagai peserta ujian' : 'Pilih jenis akun Anda'}</p>
-        ${lokal ? '' : html`<div class="seg mt-16" role="tablist" style="width:100%">
-          <button style="flex:1" data-tab="staf" role="tab">${icon('badge')} Staf</button>
-          <button style="flex:1" data-tab="peserta" role="tab">${icon('school')} Peserta</button></div>`}
-        <div id="f-staf" class="mt-24">
+    <section class="msk-main">
+      <div class="msk-top">
+        ${lokal ? html`<span></span>` : html`<a href="#/beranda">${icon('arrow_back')} Beranda</a>`}
+        <a id="bantuan" class="hidden" target="_blank" rel="noopener" href="#">${icon('support_agent')} Bantuan</a>
+      </div>
+      <div class="msk-center"><div class="msk-card">
+        <h2>Masuk</h2>
+        <p class="sub">${lokal ? 'Masuk sebagai peserta ujian di server sekolah.' : 'Pilih jenis akun Anda untuk melanjutkan.'}</p>
+        ${lokal ? '' : html`<div class="msk-tabs" role="tablist" aria-label="Jenis akun">
+          <button type="button" data-tab="staf" role="tab">${icon('badge')} Staf sekolah</button>
+          <button type="button" data-tab="peserta" role="tab">${icon('school')} Peserta ujian</button></div>`}
+        <div id="f-staf" class="msk-pane" role="tabpanel">
           ${api.session() ? html`<div class="alert blue"><div class="a-ic">${icon('verified_user')}</div>
             <div style="flex:1">Anda masih masuk sebagai staf.</div><a class="btn sm primary" href="#/">Lanjutkan</a></div>` : ''}
           <button class="btn-google" id="g-btn">${raw(GOOGLE)} Masuk dengan Google</button>
-          <p class="hint mt-16" style="text-align:center">Untuk Super Admin, admin lembaga, guru, dan pengawas.<br>
-            Email Google Anda harus sudah didaftarkan oleh admin.</p>
-          <a class="btn ghost block mt-16 hidden" id="daftar-link" href="#/daftar">${icon('domain_add')} Belum terdaftar? Daftarkan sekolah Anda</a>
+          <div class="msk-info">${icon('info')}<span>Untuk Super Admin, admin sekolah, guru, dan pengawas. Gunakan email Google yang sudah didaftarkan admin.</span></div>
+          <div id="daftar-wrap" class="hidden"><div class="or">atau</div>
+            <a class="msk-reg" id="daftar-link" href="#/daftar">${icon('domain_add')} Daftarkan sekolah Anda</a></div>
         </div>
-        <form id="f-peserta" class="col mt-24" autocomplete="on" novalidate>
+        <form id="f-peserta" class="msk-pane col" autocomplete="on" novalidate role="tabpanel">
           ${lokal ? '' : html`<div class="field"><label for="kode">Kode Lembaga</label>
             <div class="input-ic">${icon('apartment')}<input class="input" id="kode" name="kode" value="${kodeTersimpan}" placeholder="contoh: SMPN3SMG" autocapitalize="characters" required></div></div>`}
           <div class="field"><label for="nis">NIS / Nomor Peserta</label>
@@ -40,14 +56,16 @@ export default async function ({ el, query, go, title }) {
             <button type="button" class="btn ghost icon sm" id="eye" style="position:absolute;right:4px;top:5px" aria-label="Tampilkan sandi">${icon('visibility')}</button></div></div>
           <div class="err-text hidden" id="p-err" role="alert"></div>
           <button class="btn primary lg block mt-8" id="p-btn" type="submit">${icon('login')} Masuk Ujian</button>
-          ${lokal ? html`<div class="alert cyan mt-8" style="margin-bottom:0"><div class="a-ic">${icon('wifi')}</div><div class="small">Terhubung ke server lokal sekolah — tidak perlu internet.</div></div>` : ''}
+          ${lokal ? html`<div class="alert cyan mt-8" style="margin-bottom:0"><div class="a-ic">${icon('wifi')}</div><div class="small">Terhubung ke server lokal sekolah, tidak perlu internet.</div></div>`
+            : html`<div class="msk-info" style="margin-top:4px">${icon('badge')}<span>Kode lembaga, NIS, dan kata sandi tertera di kartu login dari sekolah.</span></div>`}
         </form>
-      </div>
+      </div></div>
+      <p class="msk-bottom">© ${new Date().getFullYear()} UjiKu CBT</p>
     </section></div>`.s;
 
   const setTab = (t) => {
     tab = t; localStorage.setItem('ujk.tab', t);
-    el.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
+    el.querySelectorAll('[data-tab]').forEach((b) => { b.classList.toggle('on', b.dataset.tab === t); b.setAttribute('aria-selected', String(b.dataset.tab === t)); });
     $('#f-staf', el).classList.toggle('hidden', t !== 'staf');
     $('#f-peserta', el).classList.toggle('hidden', t !== 'peserta');
   };
@@ -57,7 +75,12 @@ export default async function ({ el, query, go, title }) {
     if (!api.configured) return toast('Belum dikonfigurasi', 'Isi config.js terlebih dahulu.', 'warn');
     api.signInWithGoogle(sessionStorage.getItem('ujk.next') || '#/');
   });
-  if (!lokal && api.configured) api.rpc('daftar_info', {}, { anon: true }).then((i) => { if (i?.mode && i.mode !== 'nonaktif') $('#daftar-link', el)?.classList.remove('hidden'); }).catch(() => {});
+  if (!lokal && api.configured) api.rpc('daftar_info', {}, { anon: true }).then((i) => {
+    if (i?.mode && i.mode !== 'nonaktif') $('#daftar-wrap', el)?.classList.remove('hidden');
+    const wa = String(i?.kontak?.wa || '').replace(/\D/g, '');
+    const b = $('#bantuan', el);
+    if (wa && b) { b.href = `https://wa.me/${wa}?text=${encodeURIComponent('Halo tim UjiKu CBT, saya butuh bantuan untuk masuk.')}`; b.classList.remove('hidden'); }
+  }).catch(() => {});
   $('#eye', el).addEventListener('click', () => { const i = $('#sandi', el); i.type = i.type === 'password' ? 'text' : 'password'; });
 
   $('#f-peserta', el).addEventListener('submit', (e) => {
