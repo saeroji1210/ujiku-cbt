@@ -4,7 +4,12 @@
 //   A. opsi … s.d. E./F.       ← opsi (boleh diawali * untuk menandai kunci)
 //   Kunci: B                   ← kunci jawaban
 //   Tingkat: Sedang | Bobot: 2 | Pembahasan: …   ← opsional
+// Wacana bersama (bacaan/gambar yang dipakai beberapa soal):
+//   Wacana: Judul           ← awal wacana; paragraf/gambar berikutnya menjadi isi wacana
+//   1. Soal pertama …       ← soal-soal berikut memakai wacana itu
+//   Akhir wacana            ← (opsional) soal setelah baris ini tidak memakai wacana
 import { readZip } from './zip.js';
+import { ommlToHtml, symChar } from './omml.js';
 
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -27,6 +32,7 @@ export async function parseDocx(file) {
   const imgTag = async (rid) => {
     const t = rels[rid]; if (!t) return '';
     const path = 'word/' + t.replace(/^\/?word\//, '').replace(/^\.\//, '');
+    if (/\.(wmf|emf)$/i.test(path)) return '<b>[rumus/gambar format WMF tidak terbaca — ketik ulang dengan Insert Equation]</b>';
     if (!media.has(path)) { const b = await z.bytes(path); if (!b) return ''; media.set(path, b); }
     return `<img data-media="${path}" alt="">`;
   };
@@ -48,6 +54,9 @@ export async function parseDocx(file) {
             if (rc.localName === 't') { seg += escH(rc.textContent); text += rc.textContent; }
             else if (rc.localName === 'tab') { seg += ' '; text += ' '; }
             else if (rc.localName === 'br') { seg += '<br>'; text += '\n'; }
+            else if (rc.localName === 'noBreakHyphen') { seg += '-'; text += '-'; }
+            else if (rc.localName === 'sym') { const c = symChar(rc.getAttributeNS(W, 'font'), rc.getAttributeNS(W, 'char')); seg += escH(c); text += c; }
+            else if (rc.localName === 'oMath' || rc.localName === 'oMathPara') { seg += ommlToHtml(rc); text += ommlToHtml(rc).replace(/<[^>]+>/g, ''); }
             else if (rc.localName === 'drawing') { for (const b of rc.getElementsByTagNameNS(A, 'blip')) seg += await imgTag(b.getAttributeNS(R, 'embed')); }
             else if (rc.localName === 'pict' || rc.localName === 'object') { for (const im of rc.getElementsByTagNameNS(VML, 'imagedata')) seg += await imgTag(im.getAttributeNS(R, 'id')); }
           }
@@ -58,8 +67,8 @@ export async function parseDocx(file) {
           if (has('b')) seg = `<b>${seg}</b>`;
           out += seg;
         } else if (ns === MML && (ln === 'oMath' || ln === 'oMathPara')) {
-          const t = Array.from(ch.getElementsByTagNameNS(MML, 't')).map((x) => x.textContent).join('');
-          out += escH(t); text += t;
+          const mh = ommlToHtml(ch);
+          out += mh; text += mh.replace(/<br>/g, ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
         } else if (ns === W && (ln === 'hyperlink' || ln === 'smartTag' || ln === 'ins' || ln === 'sdt' || ln === 'sdtContent')) {
           await walk(ch);
         }
@@ -73,18 +82,23 @@ export async function parseDocx(file) {
 
   const body = doc.getElementsByTagNameNS(W, 'body')[0];
   const paras = Array.from(body.getElementsByTagNameNS(W, 'p'));
-  const items = [];
-  let q = null, mode = 'teks';
+  const items = [], wacana = [];
+  let q = null, mode = 'teks', cw = null;
   const stripLead = (h, re) => {
     // hapus awalan "1." / "A." dari HTML dengan mencocokkan teks polos
     const m = h.match(re); return m ? h.slice(m[0].length) : h;
   };
-  const newQ = (htmlText) => { q = { teks: htmlText, opsi: [], kunci: null, tingkat: 'sedang', bobot: 1, pembahasan: '' }; items.push(q); mode = 'teks'; };
+  const newQ = (htmlText) => { q = { teks: htmlText, opsi: [], kunci: null, tingkat: 'sedang', bobot: 1, pembahasan: '', w: cw ? wacana.indexOf(cw) : -1 }; items.push(q); mode = 'teks'; };
 
   for (const p of paras) {
     const { html: h, text: t, list } = await para(p);
     if (!t && !/<img/.test(h)) continue;
     let m;
+    if ((m = t.match(/^\[?\s*(akhir|selesai|tutup)\s+wacana\s*\]?$/i)) || /^\[?\s*\/\s*wacana\s*\]?$/i.test(t)) { cw = null; mode = 'meta'; continue; }
+    if ((m = t.match(/^\[?\s*wacana\s*[:=]\s*(.*?)\s*\]?$/i)) || /^\[?\s*wacana\s*\]?$/i.test(t)) {
+      cw = { judul: ((m && m[1]) || '').replace(/<[^>]+>/g, '').slice(0, 200), teks: '' }; wacana.push(cw); mode = 'wacana'; continue;
+    }
+    if (mode === 'wacana' && cw && !/^\s*\d{1,3}\s*[.)]\s*/.test(t) && !/^(kunci|jawaban)\s*[:=]/i.test(t)) { cw.teks += `<p>${h}</p>`; continue; }
     if ((m = t.match(/^(kunci(\s*jawaban)?|jawaban|answer|key)\s*[:=]\s*\(?([A-Fa-f])\)?\b/i))) { if (q) q.kunci = m[3].toUpperCase(); mode = 'meta'; continue; }
     if ((m = t.match(/^tingkat(\s*kesukaran)?\s*[:=]\s*(mudah|sedang|sukar|sulit)/i))) { if (q) q.tingkat = m[2].toLowerCase() === 'sulit' ? 'sukar' : m[2].toLowerCase(); continue; }
     if ((m = t.match(/^bobot\s*[:=]\s*([\d.,]+)/i))) { if (q) q.bobot = Number(m[1].replace(',', '.')) || 1; continue; }
@@ -108,9 +122,15 @@ export async function parseDocx(file) {
     else if (mode === 'opsi' && q.opsi.length) q.opsi[q.opsi.length - 1].t += '<br>' + h;
     else if (mode === 'bahas') q.pembahasan += '\n' + t;
   }
-  return { items, media };
+  return { items, media, wacana };
 }
 function stripLeadText(h) { return String(h || '').replace(/<[^>]+>/g, '').trim(); }
+
+export function wacanaProblem(w) {
+  return String(w.teks || '').replace(/<img[^>]*>/gi, 'IMG').replace(/<[^>]+>/g, '').trim() ? null : 'Teks wacana kosong';
+}
+
+export const itemWarning = (q) => (/\[rumus\/gambar format WMF/.test([q.teks, ...q.opsi.map((o) => o.t)].join('')) ? 'Ada rumus gambar (MathType/WMF) yang tidak terbaca' : null);
 
 export function itemProblem(q) {
   const plain = (h) => String(h || '').replace(/<img[^>]*>/gi, 'IMG').replace(/<[^>]+>/g, '').trim();
