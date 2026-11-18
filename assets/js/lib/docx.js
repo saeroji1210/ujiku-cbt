@@ -58,6 +58,12 @@ export async function parseDocx(file) {
             else if (rc.localName === 'sym') { const c = symChar(rc.getAttributeNS(W, 'font'), rc.getAttributeNS(W, 'char')); seg += escH(c); text += c; }
             else if (rc.localName === 'oMath' || rc.localName === 'oMathPara') { seg += ommlToHtml(rc); text += ommlToHtml(rc).replace(/<[^>]+>/g, ''); }
             else if (rc.localName === 'drawing') { for (const b of rc.getElementsByTagNameNS(A, 'blip')) seg += await imgTag(b.getAttributeNS(R, 'embed')); }
+            else if (rc.localName === 'AlternateContent') {
+              const ch0 = Array.from(rc.childNodes).find((x) => x.localName === 'Choice') || rc;
+              let got = false;
+              for (const b of ch0.getElementsByTagNameNS(A, 'blip')) { seg += await imgTag(b.getAttributeNS(R, 'embed')); got = true; }
+              if (!got) for (const im of rc.getElementsByTagNameNS(VML, 'imagedata')) seg += await imgTag(im.getAttributeNS(R, 'id'));
+            }
             else if (rc.localName === 'pict' || rc.localName === 'object') { for (const im of rc.getElementsByTagNameNS(VML, 'imagedata')) seg += await imgTag(im.getAttributeNS(R, 'id')); }
           }
           if (!seg) continue;
@@ -106,9 +112,9 @@ export async function parseDocx(file) {
     if ((m = t.match(/^\s*(\d{1,3})\s*[.)]\s*/))) {
       newQ(stripLead(h, /^(\s|<[^>]+>)*\d{1,3}\s*[.)]\s*/)); continue;
     }
-    if ((m = t.match(/^\s*(\*)?\s*([A-Fa-f])\s*[.)]\s+/)) && q && (mode === 'teks' || mode === 'opsi') && m[2].toUpperCase() === LET[q.opsi.length]) {
+    if ((m = t.match(/^\s*(\*)?\s*([A-Fa-f])\s*[.)](\s+|$)/)) && q && (mode === 'teks' || mode === 'opsi') && m[2].toUpperCase() === LET[q.opsi.length]) {
       const k = m[2].toUpperCase();
-      let oh = stripLead(h, /^(\s|<[^>]+>)*\*?\s*[A-Fa-f]\s*[.)]\s+/);
+      let oh = stripLead(h, /^(\s|<[^>]+>)*\*?\s*[A-Fa-f]\s*[.)]\s*/);
       if (m[1] || /\*\s*$/.test(t)) { q.kunci = k; oh = oh.replace(/\*\s*$/, ''); }
       q.opsi.push({ k, t: oh.trim() }); mode = 'opsi'; continue;
     }
