@@ -326,6 +326,11 @@ p { margin: 0; }
 .qn.ok { background: #E8F7EF; border-color: #BFE8D2; color: var(--green-700); }
 .qn.warn { background: var(--orange-50); border-color: #FBD9A8; color: var(--orange-700); }
 .qn.cur { box-shadow: 0 0 0 3px var(--navy); }
+.qn.wc { border-bottom: 4px solid hsl(var(--wh, 210) 70% 50%); }
+.wc-box { background: #F6F9FE; border: 1.5px solid #D6E4FA; border-radius: 16px; padding: 14px 16px; }
+.wc-box .rte { min-height: 120px; max-height: 320px; overflow: auto; background: #fff; }
+.phone .ph-body .ph-wc { background: #F2F7FE; border: 1px solid #D6E4FA; margin-bottom: 10px; max-height: 190px; overflow: auto; }
+.phone .ph-wc-t { font-weight: 700; color: var(--navy); margin-bottom: 6px; display: flex; gap: 6px; align-items: center; }
 .qn.drag { opacity: .4; }
 .qn.ans { background: var(--primary); border-color: var(--primary); color: #fff; }
 .qn.doubt { background: var(--orange); border-color: var(--orange); color: #fff; }
@@ -508,6 +513,13 @@ p { margin: 0; }
 .ex-prog { height: 4px; background: var(--track); } .ex-prog i { display: block; height: 100%; background: var(--primary); transition: width .3s; }
 .ex-body { flex: 1; width: 100%; max-width: 1100px; margin: 0 auto; padding: 16px 16px 110px; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
 .ex-q { background: #fff; border-radius: 20px; box-shadow: var(--sh-1); padding: 20px; }
+.ex-wc { background: #fff; border-radius: 20px; box-shadow: var(--sh-1); border: 1.5px solid #D6E4FA; overflow: hidden; }
+.ex-wc > summary { display: flex; align-items: center; gap: 10px; padding: 14px 20px; cursor: pointer; list-style: none; background: #F2F7FE; color: var(--navy); }
+.ex-wc > summary::-webkit-details-marker { display: none; }
+.ex-wc > summary .ms { color: var(--primary); }
+.ex-wc > summary .small { margin-left: auto; white-space: nowrap; }
+.ex-wc[open] > summary { border-bottom: 1px solid #D6E4FA; }
+.ex-wc > .q-html { padding: 16px 20px 18px; max-height: 44vh; overflow: auto; }
 .ex-q .q-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .ex-q .q-no { background: var(--primary); color: #fff; font-weight: 700; padding: 6px 14px; border-radius: 10px; font-size: 15px; }
 .q-html { font-size: 18px; line-height: 1.75; word-wrap: break-word; }
