@@ -694,3 +694,19 @@ p { margin: 0; }
 .opts.img-grid .opt .zo { position: absolute; right: 10px; bottom: 10px; width: 32px; height: 32px; }
 .opts.img-grid .opt .ck { position: absolute; top: 12px; right: 12px; }
 @media (max-width: 380px) { .opts.img-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Tulis Soal (buat soal manual) ---- */
+.tulis-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 20px; align-items: start; }
+.tulis-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 20px 20px 4px; }
+.tulis-head .spacer { flex: 1; }
+.card.pad-0 .toolbar .input-ic { max-width: none; }
+#list .tulis-row { border-radius: 0; box-shadow: none; border-top: 1px solid var(--border); padding: 14px 20px; flex-wrap: wrap; }
+#list .tulis-row:hover { transform: none; box-shadow: none; background: var(--slate-50); }
+#list .tulis-row .icon-tile { width: 42px; height: 42px; }
+#list .empty { padding: 32px 20px; }
+.tulis-tips { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 84px; }
+.tulis-tips .tip { display: flex; gap: 12px; align-items: flex-start; }
+.tulis-tips .icon-tile { width: 38px; height: 38px; border-radius: 10px; }
+.tulis-tips .icon-tile .ms { width: 20px; height: 20px; }
+@media (max-width: 1023px) { .tulis-grid { grid-template-columns: minmax(0, 1fr); } .tulis-tips { position: static; } }
+@media (max-width: 560px) { #list .tulis-row .btn { margin-left: 56px; } }
