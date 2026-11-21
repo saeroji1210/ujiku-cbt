@@ -2,22 +2,24 @@ import * as api from '../core/api.js';
 import * as store from '../core/store.js';
 import { html, raw, icon, $, $$, on, fmt, mapelColor, badge, skel, modal, toast, toastErr, busy, popMenu, confirmDialog, debounce, sanitize, pickFile } from '../core/ui.js';
 import { compressImage } from '../lib/image.js';
+import { AUDIO_ACCEPT, MAKS_OPSI, checkAudio, teacherAudio } from '../lib/audio.js';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 const stripped = (h) => String(h || '').replace(/<img[^>]*>/gi, 'IMG').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
-export function problem(q) {
-  if (!stripped(q.teks)) return 'Teks soal kosong';
+// wc: wacana soal ini (bila ada). Soal beraudio (sendiri atau lewat wacana) boleh tanpa teks.
+export function problem(q, wc) {
+  if (!stripped(q.teks) && !q.audio_url && !(wc && wc.audio_url)) return 'Teks soal kosong';
   const filled = (q.opsi || []).filter((o) => stripped(o.t));
   if (filled.length < 2) return 'Opsi kurang dari 2';
   if (!q.kunci) return 'Kunci belum ditetapkan';
   if (!filled.some((o) => o.k === q.kunci)) return 'Kunci tidak ada di opsi';
   return null;
 }
-export function previewPhone(q, idx, total, judul) {
+export function previewPhone(q, idx, total, judul, wc) {
   return html`<div class="phone"><div class="scr"><div class="ph-top"><span class="badge" style="background:rgba(255,255,255,.2);color:#fff">${idx + 1}</span>
     <div style="flex:1;min-width:0"><div class="bold ellipsis">${judul}</div><div style="opacity:.8;font-size:11px">Soal ${idx + 1} dari ${total}</div></div>
     <span class="badge" style="background:rgba(0,0,0,.18);color:#fff">${icon('timer')} 58:24</span></div>
-    <div class="ph-body">${q ? html`<div class="q-html">${raw(sanitize(q.teks) || '<span style="color:#9CA3AF">Teks soal…</span>')}
+    <div class="ph-body">${wc && q ? html`<div class="q-html ph-wc"><div class="ph-wc-t">${icon(wc.audio_url ? 'headphones' : 'auto_stories')} ${wc.judul || 'Wacana'}</div>${wc.audio_url ? html`<audio class="ph-aud" controls preload="none" src="${wc.audio_url}"></audio>` : ''}${raw(sanitize(wc.teks) || (wc.audio_url ? '' : '<span style="color:#9CA3AF">Teks wacana…</span>'))}</div>` : ''}${q ? html`${q.audio_url ? html`<audio class="ph-aud" controls preload="none" src="${q.audio_url}"></audio>` : ''}<div class="q-html">${raw(sanitize(q.teks) || (q.audio_url || wc?.audio_url ? '' : '<span style="color:#9CA3AF">Teks soal…</span>'))}
       ${q.gambar_url ? html`<div style="margin-top:8px"><img src="${q.gambar_url}" alt=""></div>` : ''}</div>
       ${(q.opsi || []).map((o, i) => html`<div class="p-opt" style="${q.kunci === o.k ? 'border-color:var(--primary);background:#EBF3FC' : ''}"><b>${LETTERS[i]}</b><span>${raw(sanitize(o.t) || '<span style="color:#9CA3AF">…</span>')}</span></div>`)}`
       : html`<div class="muted small" style="padding:20px;text-align:center">Belum ada soal.</div>`}</div></div></div>
@@ -33,6 +35,10 @@ export default async function (ctx) {
   if (!alive()) return;
   const bank = d.bank;
   const soal = d.soal;
+  const wacana = d.wacana || [];
+  const wOf = (x) => (x && x.wacana_id ? wacana.find((w) => w.id === x.wacana_id) : null);
+  const wDirty = new Set();
+  const wHue = (id) => { const i = wacana.findIndex((w) => w.id === id); return (i * 67 + 200) % 360; };
   let cur = 0, filter = 'semua', locked = bank.terkunci, saveState = 'ok', lastSaved = null, dirty = false, chain = Promise.resolve();
   title('Editor · ' + bank.nama);
   const c = mapelColor(bank.mapel);
@@ -50,7 +56,7 @@ export default async function (ctx) {
         <div class="row"><div><h3 style="font-size:18px">Daftar Soal</h3><div class="muted small" id="total"></div></div><span class="spacer"></span>
           <button class="btn primary icon" id="btn-add" aria-label="Tambah soal">${icon('add')}</button></div>
         <div class="row wrap gap-4 mt-16" id="filters"></div>
-        <div class="legend mt-8"><span><i style="background:#22A06B"></i>Lengkap</span><span><i style="background:#F7941D"></i>Belum lengkap</span><span><i style="background:#E5E7EB"></i>Kosong</span></div>
+        <div class="legend mt-8"><span><i style="background:#22A06B"></i>Lengkap</span><span><i style="background:#F7941D"></i>Belum lengkap</span><span><i style="background:#E5E7EB"></i>Kosong</span><span><i style="background:#fff;border-bottom:3px solid hsl(210 70% 50%);border-radius:2px"></i>Satu wacana</span></div>
         <div class="qnum-grid mt-16" id="qgrid"></div>
         <div class="col gap-8 mt-16"><a class="btn soft block" href="#/impor?bank=${bank.id}">${icon('upload_file')} Impor dari Word</a></div>
       </aside>
@@ -83,11 +89,40 @@ export default async function (ctx) {
     $('#qgrid', el).innerHTML = soal.map((x, i) => {
       const show = filter === 'semua' || (filter === 'kunci' && !x.kunci) || (filter === 'revisi' && x.perlu_revisi);
       if (!show) return '';
-      const p = problem(x), emptyQ = !stripped(x.teks) && !(x.opsi || []).some((o) => stripped(o.t));
-      return html`<div class="qn ${emptyQ ? '' : p ? 'warn' : 'ok'} ${i === cur ? 'cur' : ''}" data-i="${i}" draggable="${!locked}" title="${p || 'Lengkap'}">${i + 1}${x.perlu_revisi ? html`<span style="position:absolute;top:-5px;right:-5px;width:10px;height:10px;border-radius:50%;background:var(--coral)"></span>` : ''}</div>`.s;
+      const p = problem(x, wOf(x)), emptyQ = !stripped(x.teks) && !(x.opsi || []).some((o) => stripped(o.t));
+      const wx = wOf(x);
+      return html`<div class="qn ${emptyQ ? '' : p ? 'warn' : 'ok'} ${i === cur ? 'cur' : ''} ${wx ? 'wc' : ''}" data-i="${i}" draggable="${!locked}" title="${(p || 'Lengkap') + (wx ? ' · ' + (wx.judul || 'berwacana') : '')}" ${wx ? html`style="--wh:${wHue(wx.id)}"` : ''}>${i + 1}${x.perlu_revisi ? html`<span style="position:absolute;top:-5px;right:-5px;width:10px;height:10px;border-radius:50%;background:var(--coral)"></span>` : ''}</div>`.s;
     }).join('');
   };
-  const paintPreview = () => { $('#pv', el).innerHTML = previewPhone(q(), cur, soal.length, bank.nama).s; };
+  const paintPreview = () => { $('#pv', el).innerHTML = previewPhone(q(), cur, soal.length, bank.nama, wOf(q())).s; };
+
+  // Kotak audio: kind 'w' (wacana) atau 'q' (soal)
+  const audioBox = (kind, u, maks, dis) => (u ? html`<div class="aud-ed mt-8">
+      ${teacherAudio(u)}
+      <div class="row wrap gap-8 mt-8"><label class="row gap-8 small"><span class="muted">Saat ujian:</span>
+          <select class="select" id="${kind}am" style="height:34px;width:auto" ${dis}>${MAKS_OPSI.map(([v, l]) => html`<option value="${v}" ${+maks === v ? 'selected' : ''}>${l}</option>`)}</select></label>
+        <span class="spacer"></span>
+        <button class="btn ghost sm" data-aud-up="${kind}" ${dis}>${icon('upload_file')} Ganti</button>
+        <button class="btn ghost sm red" data-aud-rm="${kind}" ${dis}>${icon('delete')} Hapus audio</button></div></div>`
+    : html`<button class="btn soft sm mt-8" data-aud-up="${kind}" ${dis}>${icon('headphones')} ${kind === 'w' ? 'Tambah audio bersama (listening)' : 'Tambah audio untuk soal ini'}</button>`);
+
+  const BAR = [['bold', 'format_bold'], ['italic', 'format_italic'], ['underline', 'format_underlined'], ['insertUnorderedList', 'format_list_bulleted'], ['img', 'image']];
+  const wacanaBox = (x, dis) => {
+    const wx = wOf(x);
+    const nUse = wx ? soal.filter((s2) => s2.wacana_id === wx.id).length : 0;
+    return html`<div class="wc-box mt-16">
+      <div class="row wrap gap-8">${icon('auto_stories', 'c-primary')}<b>Wacana / audio bersama</b><span class="muted small">opsional · satu bacaan, gambar, atau audio dipakai beberapa soal</span><span class="spacer"></span>
+        <select class="select" id="wsel" aria-label="Pilih wacana" style="width:auto;max-width:260px;height:38px" ${dis}><option value="">Tanpa wacana</option>
+          ${wacana.map((w, i) => html`<option value="${w.id}" ${x.wacana_id === w.id ? 'selected' : ''}>${w.judul || 'Wacana ' + (i + 1)} (${soal.filter((s2) => s2.wacana_id === w.id).length} soal)</option>`)}
+          <option value="__new">+ Buat wacana baru…</option></select></div>
+      ${wx ? html`<input class="input mt-8" id="wjudul" placeholder="Judul wacana, mis. Text 1 atau Bacaan Cerpen" value="${wx.judul}" maxlength="200" ${dis}>
+        <div class="rte-bar mt-8">${BAR.map(([cmd, ic]) => html`<button type="button" data-cmd="${cmd}" title="${cmd}" ${dis}>${icon(ic)}</button>`)}</div>
+        ${audioBox('w', wx.audio_url, wx.audio_maks, dis)}
+        <div class="rte mt-8" id="wteks" contenteditable="${!locked}" data-ph="${wx.audio_url ? 'Opsional: petunjuk atau transkrip singkat…' : 'Tempel teks bacaan atau sisipkan gambar di sini…'}">${raw(sanitize(wx.teks))}</div>
+        <div class="row wrap small muted mt-8">${icon('link')}<span>Dipakai ${nUse} soal. Perubahan berlaku untuk semua soal ini.</span><span class="spacer"></span>
+          <button class="btn ghost sm red" data-wdel ${dis}>${icon('link_off')} Hapus wacana</button></div>`
+        : html`<div class="muted small mt-8">Untuk bacaan, teks panjang, tabel, gambar, atau audio listening yang dipakai beberapa soal. Soal sewacana tampil berurutan dan diacak sebagai satu blok saat ujian.</div>`}</div>`;
+  };
 
   const paintEditor = () => {
     const ed = $('#ed', el);
@@ -109,10 +144,12 @@ export default async function (ctx) {
           <select class="select" id="tk" style="height:36px;width:auto;border:0;background-color:transparent" ${dis}>${['mudah', 'sedang', 'sukar'].map((t) => html`<option value="${t}" ${x.tingkat === t ? 'selected' : ''}>${t[0].toUpperCase() + t.slice(1)}</option>`)}</select></label>
         <label class="row gap-8" style="background:var(--slate-50);border-radius:10px;padding:4px 12px"><span class="muted small">Bobot:</span>
           <input class="input" id="bb" type="number" min="0.5" step="0.5" value="${x.bobot}" style="height:36px;width:70px;border:0;background:transparent;padding:0 4px" ${dis}><span class="muted small">poin</span></label></div>
+      ${wacanaBox(x, dis)}
       <div class="rte-bar mt-16" id="bar">${[['bold', 'format_bold'], ['italic', 'format_italic'], ['underline', 'format_underlined'], ['strikeThrough', 'strikethrough_s'],
           ['superscript', 'superscript'], ['subscript', 'subscript'], ['insertUnorderedList', 'format_list_bulleted'], ['img', 'image'], ['undo', 'undo'], ['redo', 'redo']]
         .map(([cmd, ic]) => html`<button type="button" data-cmd="${cmd}" title="${cmd}" ${dis}>${icon(ic)}</button>`)}</div>
       <div class="rte" id="teks" contenteditable="${!locked}" data-ph="Tulis teks pertanyaan di sini…">${raw(sanitize(x.teks))}</div>
+      <div class="q-aud">${audioBox('q', x.audio_url, x.audio_maks, dis)}</div>
       ${x.gambar_url ? html`<div class="row mt-16" style="background:var(--slate-50);border-radius:14px;padding:12px">${icon('image', 'c-primary')}<b>Lampiran gambar</b><span class="spacer"></span>
         <button class="btn ghost sm red" data-rmimg ${dis}>${icon('delete')} Hapus</button></div><div style="padding:8px;text-align:center"><img src="${x.gambar_url}" alt="" style="max-height:260px;border-radius:10px"></div>` : ''}
       <div class="row mt-24"><b>Pilihan Jawaban</b><span class="muted small">(klik bulatan untuk menetapkan kunci)</span><span class="spacer"></span>
@@ -120,7 +157,9 @@ export default async function (ctx) {
       <div class="col gap-8 mt-8" id="opts">${x.opsi.map((o, i) => html`<div class="opt-edit ${x.kunci === o.k ? 'key' : ''}" data-k="${o.k}">
         <input type="radio" name="kunci" value="${o.k}" ${x.kunci === o.k ? 'checked' : ''} ${dis} aria-label="Kunci ${LETTERS[i]}"><span class="lt">${LETTERS[i]}</span>
         <div class="rte small" contenteditable="${!locked}" data-opt="${o.k}" data-ph="Teks opsi ${LETTERS[i]}">${raw(sanitize(o.t))}</div>
-        <button class="btn ghost icon sm" data-rmopt="${o.k}" title="Hapus opsi" ${dis || x.opsi.length <= 2 ? 'disabled' : ''}>${icon('close')}</button></div>`)}</div>
+        <div class="row gap-4"><button class="btn ghost icon sm" data-optimg="${o.k}" title="Sisipkan gambar ke opsi ${LETTERS[i]}" aria-label="Sisipkan gambar ke opsi ${LETTERS[i]}" ${dis}>${icon('add_photo_alternate')}</button>
+        <button class="btn ghost icon sm" data-rmopt="${o.k}" title="Hapus opsi" ${dis || x.opsi.length <= 2 ? 'disabled' : ''}>${icon('close')}</button></div></div>`)}</div>
+      <div class="muted tiny mt-4">${icon('image')} Opsi boleh berupa gambar: klik ikon gambar di samping opsi, seret berkas gambar ke kotak opsi, atau tempel (Ctrl+V).</div>
       ${x.opsi.length < 6 && !locked ? html`<button class="btn soft block mt-8" data-addopt>${icon('add_circle')} Tambah Opsi Pilihan (${LETTERS[x.opsi.length]})</button>` : ''}
       <details class="mt-16" ${x.pembahasan ? 'open' : ''}><summary class="semi" style="cursor:pointer;padding:10px 0">${icon('lightbulb', 'c-orange')} Pembahasan / catatan guru (opsional)</summary>
         <textarea class="textarea" id="pb" placeholder="Penjelasan jawaban untuk arsip guru" ${dis}>${x.pembahasan || ''}</textarea></details>
@@ -142,21 +181,31 @@ export default async function (ctx) {
     x.bobot = Number($('#bb', ed).value) || 1;
     x.tingkat = $('#tk', ed).value;
     x.pembahasan = $('#pb', ed).value;
+    const qam = $('#qam', ed); if (qam) x.audio_maks = +qam.value || 0;
+    const wx = wOf(x), wt = $('#wteks', ed);
+    if (wx && wt) {
+      const nj = $('#wjudul', ed).value, nt = sanitize(wt.innerHTML);
+      const wam = $('#wam', ed), nm = wam ? +wam.value || 0 : +wx.audio_maks || 0;
+      if (nj !== wx.judul || nt !== wx.teks || nm !== (+wx.audio_maks || 0)) { wx.judul = nj; wx.teks = nt; wx.audio_maks = nm; wDirty.add(wx.id); }
+    }
     return x;
   };
   const save = (x = collect()) => {
     if (!x) return chain;
     dirty = false;
-    const snap = { id: x.id, bank_id: bank.id, teks: x.teks, opsi: x.opsi, kunci: x.kunci, bobot: x.bobot, tingkat: x.tingkat, pembahasan: x.pembahasan, gambar_url: x.gambar_url || '' };
+    const snap = { id: x.id, bank_id: bank.id, teks: x.teks, opsi: x.opsi, kunci: x.kunci, bobot: x.bobot, tingkat: x.tingkat, pembahasan: x.pembahasan, gambar_url: x.gambar_url || '', wacana_id: x.wacana_id || '',
+      audio_url: x.audio_url || '', audio_maks: x.audio_maks || 0 };
     setSave('saving');
-    chain = chain.then(() => api.rpc('question_save', { p: snap }).then((r) => {
+    const wsave = [...wDirty].map((id) => wacana.find((w) => w.id === id)).filter(Boolean).map((w) => ({ id: w.id, bank_id: bank.id, judul: w.judul, teks: w.teks, audio_url: w.audio_url || '', audio_maks: w.audio_maks || 0 }));
+    wDirty.clear();
+    chain = chain.then(() => Promise.all(wsave.map((p) => api.rpc('passage_save', { p })))).then(() => api.rpc('question_save', { p: snap }).then((r) => {
       x.perlu_revisi = r.perlu_revisi; x.updated_at = r.updated_at;
       if (r.status_bank) bank.status = r.status_bank;
       lastSaved = new Date(); setSave(dirty ? 'saving' : 'ok');
       store.invalidate('banks', 'gr_dashboard');
-      if (bank.status === 'siap' && problem(x)) { bank.status = 'draf'; paintHead(); }
+      if (bank.status === 'siap' && problem(x, wOf(x))) { bank.status = 'draf'; paintHead(); }
       if (alive()) paintList();
-    }).catch((e) => { setSave('err'); if (e.hint === 'terkunci') { locked = true; paintAll(); } toastErr(e, 'Gagal menyimpan soal'); }));
+    })).catch((e) => { wsave.forEach((p) => wDirty.add(p.id)); setSave('err'); if (e.hint === 'terkunci') { locked = true; paintAll(); } toastErr(e, 'Gagal menyimpan soal'); });
     return chain;
   };
   const saveSoon = debounce(() => save(), 900);
@@ -170,7 +219,7 @@ export default async function (ctx) {
     await flush();
     try {
       const r = base ? await api.rpc('question_duplicate', { id: base.id })
-        : await api.rpc('question_save', { p: { bank_id: bank.id, teks: '', opsi: LETTERS.slice(0, 5).map((k) => ({ k, t: '' })), bobot: 1, tingkat: 'sedang' } });
+        : await api.rpc('question_save', { p: { bank_id: bank.id, teks: '', opsi: LETTERS.slice(0, 5).map((k) => ({ k, t: '' })), bobot: 1, tingkat: 'sedang', wacana_id: q()?.wacana_id || '' } });
       soal.splice(base ? cur + 1 : soal.length, 0, r);
       cur = base ? cur + 1 : soal.length - 1;
       paintAll();
@@ -183,16 +232,37 @@ export default async function (ctx) {
     if (!file) return;
     await uploadAndInsert(file, target);
   }
-  async function uploadAndInsert(file, target) {
+  async function uploadAndInsert(file, target, atEnd = false) {
     try {
       toast('Mengunggah gambar…', '', 'info', 1800);
       const { blob, ext, type } = await compressImage(file);
       const path = `${me.tenant.id}/${bank.id}/${api.randomId(10)}.${ext}`;
       const { url } = await api.upload('soal-media', path, blob, type);
       target.focus();
+      if (atEnd) { const r = document.createRange(); r.selectNodeContents(target); r.collapse(false); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
       document.execCommand('insertHTML', false, `<img src="${url}" alt="">`);
       touched();
     } catch (e) { toastErr(e, 'Gagal mengunggah gambar'); }
+  }
+
+  // Unggah audio untuk wacana ('w') atau soal ('q')
+  async function uploadAudio(kind, btn) {
+    if (locked) return;
+    const file = await pickFile(AUDIO_ACCEPT);
+    if (!file) return;
+    let meta;
+    try { meta = checkAudio(file); } catch (e) { toast('Audio tidak bisa dipakai', e.message, 'warn', 9000); return; }
+    const x = collect(); const wx = kind === 'w' ? wOf(x) : null;
+    if (!x || (kind === 'w' && !wx)) return;
+    await busy(btn, async () => {
+      try {
+        toast('Mengunggah audio…', `${file.name} · ${(file.size / 1048576).toFixed(1)} MB`, 'info', 3500);
+        const { url } = await api.upload('soal-media', `${me.tenant.id}/${bank.id}/${api.randomId(10)}.${meta.ext}`, file, meta.type);
+        if (wx) { wx.audio_url = url; wDirty.add(wx.id); } else x.audio_url = url;
+        paintEditor(); paintPreview(); paintList(); save(x);
+        toast('Audio terpasang', kind === 'w' ? 'Dipakai semua soal di wacana ini.' : '', 'ok');
+      } catch (e) { toastErr(e, 'Gagal mengunggah audio'); }
+    });
   }
 
   paintAll();
@@ -203,6 +273,28 @@ export default async function (ctx) {
     on(el, 'focusin', '.rte', (e, n) => { lastRte = n; }),
     on(el, 'input', '#ed', () => touched()),
     on(el, 'change', '#ed', (e) => { if (e.target.name === 'kunci') { collect(); paintEditor(); paintPreview(); paintList(); save(); } else touched(); }),
+    on(el, 'change', '#wsel', async (e) => {
+      const x = collect(); if (!x || locked) return;
+      const v = e.target.value;
+      try {
+        if (v === '__new') {
+          const w = await api.rpc('passage_save', { p: { bank_id: bank.id, judul: '', teks: '' } });
+          wacana.push(w); x.wacana_id = w.id;
+        } else x.wacana_id = v || null;
+        paintAll(); save(x);
+        if (v === '__new') setTimeout(() => $('#wjudul', el)?.focus(), 50);
+      } catch (err) { toastErr(err, 'Gagal membuat wacana'); paintEditor(); }
+    }),
+    on(el, 'click', '[data-wdel]', async () => {
+      const x = collect(); const wx = wOf(x); if (!wx) return;
+      const n = soal.filter((s2) => s2.wacana_id === wx.id).length;
+      if (!(await confirmDialog({ title: 'Hapus wacana ini?', text: `Teks wacana dihapus. ${n} soal yang memakainya tetap ada, hanya dilepas dari wacana.`, danger: true, ok: 'Hapus Wacana' }))) return;
+      try {
+        await chain; await api.rpc('passage_delete', { id: wx.id });
+        soal.forEach((s2) => { if (s2.wacana_id === wx.id) s2.wacana_id = null; });
+        wacana.splice(wacana.indexOf(wx), 1); wDirty.delete(wx.id); paintAll(); store.invalidate('bank:' + bank.id);
+      } catch (err) { toastErr(err); }
+    }),
     on(el, 'click', '[data-i]', (e, n) => select(+n.dataset.i)),
     on(el, 'click', '[data-f]', (e, n) => { filter = n.dataset.f; paintList(); }),
     on(el, 'click', '[data-nav]', async (e, b) => { const dir = +b.dataset.nav; if (dir > 0 && cur === soal.length - 1) { if (!locked) await addQ(); } else select(cur + dir); }),
@@ -220,6 +312,29 @@ export default async function (ctx) {
       const map = {}; rest.forEach((o, i) => { map[o.k] = LETTERS[i]; o.k = LETTERS[i]; });
       x.kunci = x.kunci === k ? null : map[x.kunci] || null;
       x.opsi = rest; paintEditor(); paintPreview(); save(x);
+    }),
+    on(el, 'click', '[data-aud-up]', (e, b) => uploadAudio(b.dataset.audUp, b)),
+    on(el, 'click', '[data-aud-rm]', async (e, b) => {
+      const x = collect(); if (!x) return;
+      const kind = b.dataset.audRm, wx = kind === 'w' ? wOf(x) : null;
+      if (!(await confirmDialog({ title: 'Hapus audio?', text: kind === 'w' ? 'Audio dilepas dari wacana ini dan semua soalnya.' : 'Audio dilepas dari soal ini.', danger: true, ok: 'Hapus Audio' }))) return;
+      if (wx) { wx.audio_url = null; wDirty.add(wx.id); } else x.audio_url = null;
+      paintEditor(); paintPreview(); paintList(); save(x);
+    }),
+    on(el, 'click', '[data-optimg]', async (e, b) => {
+      if (locked) return;
+      const target = $(`[data-opt="${b.dataset.optimg}"]`, el); if (!target) return;
+      const file = await pickFile('image/*'); if (!file) return;
+      lastRte = target; await uploadAndInsert(file, target, true);
+    }),
+    on(el, 'dragover', '.rte', (e) => { if (!locked && Array.from(e.dataTransfer?.items || []).some((i) => i.kind === 'file')) { e.preventDefault(); e.target.closest('.rte')?.classList.add('drop'); } }),
+    on(el, 'dragleave', '.rte', (e, n) => n.classList.remove('drop')),
+    on(el, 'drop', '.rte', async (e, n) => {
+      n.classList.remove('drop');
+      const files = Array.from(e.dataTransfer?.files || []).filter((f) => f.type.startsWith('image/'));
+      if (!files.length || locked) return;
+      e.preventDefault(); lastRte = n;
+      for (const f of files) await uploadAndInsert(f, n, true);
     }),
     on(el, 'click', '[data-rmimg]', () => { const x = collect(); x.gambar_url = null; paintEditor(); paintPreview(); save(x); }),
     on(el, 'mousedown', '[data-cmd]', (e) => e.preventDefault()),
@@ -261,11 +376,11 @@ export default async function (ctx) {
       toast(to === 'siap' ? 'Bank soal siap dipakai' : 'Dikembalikan ke draf', to === 'siap' ? 'Admin kini dapat memakainya untuk jadwal ujian.' : '', 'ok');
     } catch (x) {
       toastErr(x, 'Belum bisa ditandai siap');
-      const bad = soal.findIndex((s) => problem(s));
+      const bad = soal.findIndex((s) => problem(s, wOf(s)));
       if (bad >= 0) { filter = 'semua'; select(bad); }
     }
   });
-  $('#btn-prev', el).onclick = async () => { collect(); modal({ title: 'Pratinjau Layar Siswa', size: 'narrow', body: previewPhone(q(), cur, soal.length, bank.nama) }); };
+  $('#btn-prev', el).onclick = async () => { collect(); modal({ title: 'Pratinjau Layar Siswa', size: 'narrow', body: previewPhone(q(), cur, soal.length, bank.nama, wOf(q())) }); };
   $('#btn-more', el).onclick = (e) => popMenu(e.currentTarget, [
     { label: 'Ubah info bank soal', icon: 'edit', k: 'edit' }, { label: 'Duplikat bank soal', icon: 'content_copy', k: 'dup' }, { label: 'Kembali ke daftar', icon: 'arrow_back', k: 'back' }], async (it) => {
     if (it.k === 'back') go('/bank');
