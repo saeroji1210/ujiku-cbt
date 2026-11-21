@@ -91,17 +91,22 @@ export default async function (ctx) {
     $('[data-go]', m.el).onclick = (e) => busy(e.currentTarget, async () => {
       try {
         const res = await api.rpc('sa_registration_decide', { id: r.id, setujui: true, poin: Number($('#pt', m.el).value || 0) });
-        m.close(); hard();
+        m.close(); hard(); notifWa(res);
         if (res.invite_token) return shareInvite({ nama: res.nama_admin, email: res.email, wa: res.wa, token: res.invite_token, lembaga: res.nama });
         kabari(res);
       } catch (x) { toastErr(x); }
     });
   }
 
+  const notifWa = (res) => {
+    if (res.wa_status === 'antre' || res.wa_status === 'dikirim') toast('WhatsApp otomatis dikirim', `Pesan ke ${res.wa || 'pendaftar'} sedang dikirim lewat Fonnte`, 'ok');
+    else if (res.wa_status === 'gagal') toast('WhatsApp otomatis gagal', 'Kirim manual lewat tombol WhatsApp, atau cek Pengaturan → WhatsApp otomatis', 'warn', 8000);
+  };
+
   function kabari(res) {
     const pesan = `Halo ${res.nama_admin}, pendaftaran ${res.nama} di UjiKu CBT sudah disetujui.\n\nKode lembaga: ${res.kode}\nPoin uji coba: ${res.poin_trial}\n\nSilakan masuk dengan akun Google ${res.email} di:\n${api.APP_URL}#/masuk`;
     const m = modal({ title: 'Lembaga disetujui', sub: `Kode ${res.kode} · ${fmt.num(res.poin_trial)} poin uji coba`, ic: 'celebration', size: 'narrow',
-      body: html`<p class="muted">Kabari <b>${res.nama_admin}</b> bahwa lembaganya sudah aktif. Ia cukup masuk dengan Google memakai <b>${res.email}</b>.</p>
+      body: html`<p class="muted">${res.wa_status === 'antre' || res.wa_status === 'dikirim' ? html`<b class="c-green">${icon('check_circle')} WhatsApp otomatis sudah dikirim.</b> Pesan di bawah hanya untuk kirim ulang manual bila perlu.` : html`Kabari <b>${res.nama_admin}</b> bahwa lembaganya sudah aktif. Ia cukup masuk dengan Google memakai <b>${res.email}</b>.`}</p>
         <textarea class="textarea mt-16" rows="7" readonly>${pesan}</textarea>`,
       foot: html`<button class="btn secondary" data-c>${icon('content_copy')} Salin pesan</button>
         <a class="btn success" target="_blank" rel="noopener" href="${waUrl(res.wa, pesan)}">${icon('chat')} Kirim via WhatsApp</a>` });
@@ -126,7 +131,7 @@ export default async function (ctx) {
       const v = await promptDialog({ title: 'Tolak pendaftaran', label: `Alasan penolakan untuk ${r.nama}`, textarea: true, ok: 'Tolak',
         hint: 'Alasan ini terlihat oleh pendaftar. Ia bisa memperbaiki data lalu mengirim ulang.' });
       if (v == null) return;
-      try { await api.rpc('sa_registration_decide', { id: r.id, setujui: false, alasan: v }); toast('Pendaftaran ditolak', '', 'ok'); hard(); } catch (x) { toastErr(x); }
+      try { const rj = await api.rpc('sa_registration_decide', { id: r.id, setujui: false, alasan: v }); toast('Pendaftaran ditolak', rj.wa_status === 'antre' || rj.wa_status === 'dikirim' ? 'Pemberitahuan WhatsApp dikirim otomatis' : '', 'ok'); hard(); } catch (x) { toastErr(x); }
     }),
   ];
   load();
