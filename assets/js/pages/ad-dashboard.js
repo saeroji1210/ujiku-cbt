@@ -1,7 +1,6 @@
 import * as api from '../core/api.js';
 import * as store from '../core/store.js';
 import { html, raw, icon, $, fmt, initials, mapelColor, mapelIcon, skel, empty } from '../core/ui.js';
-import { HERO } from '../core/art.js';
 
 const KEY = 'ad_dashboard';
 const load = () => api.rpc('ad_dashboard');
@@ -28,7 +27,6 @@ export default async function (ctx) {
         <div class="b-txt"><span class="b-pill"><i></i> Sistem CBT siap & terhubung</span>
           <h1>Selamat datang, ${sapa}!</h1>
           <p>Ujian lebih mudah, nilai lebih cepat. ${d.berlangsung.length ? html`<b>${d.berlangsung.length} sesi ujian</b> sedang aktif diawasi hari ini.` : 'Belum ada ujian yang berlangsung saat ini.'}</p></div>
-        <div class="b-art">${raw(HERO)}</div>
       </section>
       <div class="grid g-4 mt-16" style="gap:14px">
         ${[['groups', 'Peserta aktif', d.statistik.peserta, '#/admin/peserta', '#1565D8'], ['badge', 'Guru & staf', d.statistik.guru, '#/admin/guru', '#22B8E8'],
@@ -55,6 +53,7 @@ export default async function (ctx) {
               <div class="icon-tile" style="background:${mapelColor(b.mapel)}">${icon(mapelIcon(b.mapel))}</div>
               <div style="flex:1;min-width:0"><div class="semi ellipsis">${b.nama}</div><div class="muted small ellipsis">${b.pemilik || '–'} · ${b.jumlah} butir soal · Siap uji</div></div>
               ${icon('chevron_right', 'muted')}</a>`) : html`<div class="card muted small">Belum ada bank soal berstatus siap. Guru menandai bank soal sebagai "Siap Dipakai" dari editor soal.</div>`}
+            <a class="list-row" href="#/tulis" style="padding:14px 16px">${icon('edit_note', 'c-primary')}<div style="flex:1" class="semi">Tulis soal langsung di aplikasi</div><span class="c-primary semi">Tulis Soal</span></a>
             <a class="list-row" href="#/impor" style="padding:14px 16px">${icon('upload_file', 'c-primary')}<div style="flex:1" class="semi">Punya file soal format Word (.docx)?</div><span class="c-primary semi">Impor Cepat</span></a>
           </div>
         </div>
