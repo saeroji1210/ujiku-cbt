@@ -27,6 +27,7 @@ const ROUTES = [
   { p: '/guru', m: 'gr-dashboard', role: ['guru', 'admin'] },
   { p: '/bank', m: 'bank-list', role: ['admin', 'guru'] },
   { p: '/bank/:id', m: 'bank-editor', role: ['admin', 'guru'] },
+  { p: '/tulis', m: 'tulis-soal', role: ['admin', 'guru'] },
   { p: '/impor', m: 'impor-word', role: ['admin', 'guru'] },
   { p: '/pantau', m: 'pantau-list', role: ['admin', 'pengawas'] },
   { p: '/pantau/:id', m: 'pantau', role: ['admin', 'pengawas'] },
@@ -52,14 +53,14 @@ const MENUS = {
   ],
   admin: [
     ['g', 'Utama'], ['/admin', 'dashboard', 'Dashboard'],
-    ['g', 'Ujian'], ['/bank', 'layers', 'Bank Soal'], ['/impor', 'upload_file', 'Impor Word'], ['/admin/ujian', 'event_note', 'Jadwal Ujian'], ['/pantau', 'visibility', 'Pantau Sesi'],
+    ['g', 'Ujian'], ['/bank', 'layers', 'Bank Soal'], ['/tulis', 'edit_note', 'Tulis Soal'], ['/impor', 'upload_file', 'Impor Word'], ['/admin/ujian', 'event_note', 'Jadwal Ujian'], ['/pantau', 'visibility', 'Pantau Sesi'],
     ['g', 'Pengguna'], ['/admin/guru', 'badge', 'Guru & Penugasan'], ['/admin/peserta', 'groups', 'Peserta'],
     ['g', 'Laporan'], ['/laporan', 'monitoring', 'Laporan Nilai'],
     ['g', 'Lainnya'], ['/admin/poin', 'toll', 'Poin & Langganan'], ['/admin/server', 'dns', 'Server Lokal'], ['/admin/pengaturan', 'settings', 'Pengaturan'],
   ],
   guru: [
     ['g', 'Utama'], ['/guru', 'dashboard', 'Dashboard'],
-    ['g', 'Ruang Guru'], ['/bank', 'layers', 'Bank Soal Saya'], ['/impor', 'upload_file', 'Impor Word'], ['/laporan', 'insights', 'Hasil & Analisis'],
+    ['g', 'Ruang Guru'], ['/bank', 'layers', 'Bank Soal Saya'], ['/tulis', 'edit_note', 'Tulis Soal'], ['/impor', 'upload_file', 'Impor Word'], ['/laporan', 'insights', 'Hasil & Analisis'],
   ],
   pengawas: [
     ['g', 'Pengawasan'], ['/pantau', 'visibility', 'Pantau Sesi'], ['/laporan', 'monitoring', 'Laporan Nilai'],
@@ -68,13 +69,13 @@ const MENUS = {
 const BOTTOM = {
   super_admin: [['/sa', 'dashboard', 'Beranda'], ['/sa/lembaga', 'domain', 'Lembaga'], ['/sa/poin', 'payments', 'Poin'], ['/sa/server', 'dns', 'Server']],
   admin: [['/admin', 'dashboard', 'Beranda'], ['/bank', 'layers', 'Bank'], ['/admin/ujian', 'event_note', 'Jadwal'], ['/pantau', 'visibility', 'Pantau']],
-  guru: [['/guru', 'dashboard', 'Beranda'], ['/bank', 'layers', 'Bank Soal'], ['/impor', 'upload_file', 'Impor'], ['/laporan', 'insights', 'Hasil']],
+  guru: [['/guru', 'dashboard', 'Beranda'], ['/bank', 'layers', 'Bank Soal'], ['/tulis', 'edit_note', 'Tulis'], ['/laporan', 'insights', 'Hasil']],
   pengawas: [['/pantau', 'visibility', 'Pantau'], ['/laporan', 'monitoring', 'Laporan']],
 };
 const QUICK = {
   super_admin: [['/sa/lembaga?baru=1', 'add_business', 'Daftarkan lembaga'], ['/sa/pendaftaran', 'how_to_reg', 'Pendaftaran sekolah'], ['/sa/poin?tab=pengajuan', 'fact_check', 'Verifikasi pembelian'], ['/sa/server', 'dns', 'Server lokal']],
-  admin: [['/admin/ujian/baru', 'add_task', 'Buat jadwal ujian'], ['/impor', 'upload_file', 'Impor soal Word'], ['/pantau', 'fact_check', 'Pantau sesi']],
-  guru: [['/bank?baru=1', 'library_add', 'Bank soal baru'], ['/impor', 'upload_file', 'Impor soal Word'], ['/laporan', 'insights', 'Hasil & analisis']],
+  admin: [['/admin/ujian/baru', 'add_task', 'Buat jadwal ujian'], ['/tulis', 'edit_note', 'Tulis soal'], ['/impor', 'upload_file', 'Impor soal Word'], ['/pantau', 'fact_check', 'Pantau sesi']],
+  guru: [['/tulis', 'edit_note', 'Tulis soal'], ['/impor', 'upload_file', 'Impor soal Word'], ['/laporan', 'insights', 'Hasil & analisis']],
   pengawas: [['/pantau', 'fact_check', 'Pantau sesi'], ['/laporan', 'monitoring', 'Laporan']],
 };
 
