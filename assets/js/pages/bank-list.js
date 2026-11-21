@@ -28,7 +28,7 @@ export function bankForm({ data, me, bank, go, onSaved }) {
     try {
       const r = await api.rpc('bank_save', { p: { id: bank?.id, nama: f.nama.value, mapel: f.mapel.value, jenjang: f.jenjang.value, pemilik_id: f.pemilik?.value || null } });
       m.close(); store.invalidate('banks', 'bank:', 'gr_dashboard');
-      if (onSaved) onSaved(r); else go('/bank/' + r.id);
+      if (onSaved) onSaved(r); else go('/bank/' + r.id + (bank ? '' : '?tulis=1'));
     } catch (x) { toastErr(x); }
   });
   return m;
@@ -42,7 +42,7 @@ export default async function (ctx) {
   let data = null;
   el.innerHTML = html`<div class="page-head"><div><div class="crumb">${guru ? 'Ruang Guru' : 'Ujian'}</div><h1>${guru ? 'Bank Soal Saya' : 'Bank Soal'}</h1>
     <div class="sub">${guru ? 'Susun soal secara online, impor dari Word, lalu tandai "Siap Dipakai" agar admin dapat menjadwalkan ujian.' : 'Semua bank soal lembaga. Hanya bank berstatus Siap yang bisa dipakai di jadwal ujian.'}</div></div>
-    <span class="spacer"></span><div class="row wrap gap-8"><a class="btn secondary" href="#/impor">${icon('upload_file')} Impor Word</a>
+    <span class="spacer"></span><div class="row wrap gap-8"><a class="btn secondary" href="#/impor">${icon('upload_file')} Impor Word</a><a class="btn secondary" href="#/tulis">${icon('edit_note')} Tulis Soal</a>
     <button class="btn primary" data-act="new">${icon('library_add')} Bank Soal Baru</button></div></div>
     <div class="card pad-0 mb-16"><div class="toolbar"><div class="input-ic">${icon('search')}<input class="input soft" id="q" placeholder="Cari nama bank soal atau mapel…"></div>
       <select class="select soft" id="fm" style="width:auto;min-width:170px"><option value="">Semua mapel</option></select>
@@ -67,7 +67,7 @@ export default async function (ctx) {
           ${b.revisi ? html`<span class="badge b-coral">${icon('flag')} ${b.revisi} perlu revisi</span>` : ''}</div>
         <div class="sep"><div class="row" style="justify-content:space-between"><span class="small">${b.lengkap}/${b.jumlah} soal lengkap</span><b style="color:${c}">${pct}%</b></div>
           <div class="progress mt-8"><i style="width:${pct}%;background:${c}"></i></div>
-          <div class="foot"><span class="muted">Diubah ${fmt.rel(b.updated_at)}</span><span class="c-primary semi">Buka editor ${icon('arrow_forward')}</span></div></div></div>`;
+          <div class="foot"><span class="muted">Diubah ${fmt.rel(b.updated_at)}</span><span class="c-primary semi">Tulis & ubah soal ${icon('arrow_forward')}</span></div></div></div>`;
     })}</div>` : html`<div class="card">${empty('layers', 'Belum ada bank soal', f.q || f.mapel || f.status ? 'Tidak ada yang cocok dengan filter.' : 'Buat bank soal pertama Anda, lalu tulis soal secara online atau impor dari Word.',
       html`<button class="btn primary" data-act="new">${icon('library_add')} Buat Bank Soal</button>`)}</div>`;
   };
