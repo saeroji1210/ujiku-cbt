@@ -71,7 +71,7 @@ export default async function (ctx) {
     if (!file) { w.innerHTML = ''; return; }
     if (!items.length) {
       w.innerHTML = html`<div class="card"><div class="empty"><div class="e-art">${icon('find_in_page')}</div><h3>Tidak ada soal yang terdeteksi</h3>
-        <p>Pastikan soal diberi nomor ("1. …"), opsi diawali huruf ("A. …"), dan kunci ditulis "Kunci: B". Untuk bacaan bersama, tulis "Wacana: Judul" sebelum soal-soalnya. Unduh templat untuk contoh format.</p></div></div>`.s;
+        <p>Pastikan soal diberi nomor ("1. …"), opsi diawali huruf ("A. …"), dan kunci ditulis "Kunci: B". Untuk bacaan bersama, tulis "Wacana: Judul" sebelum soal-soalnya. Audio listening ditambahkan di editor bank soal setelah impor. Unduh templat untuk contoh format.</p></div></div>`.s;
       return;
     }
     const s = stats();
