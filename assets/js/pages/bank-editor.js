@@ -27,7 +27,7 @@ export function previewPhone(q, idx, total, judul, wc) {
 }
 
 export default async function (ctx) {
-  const { el, params, title, alive, go, me } = ctx;
+  const { el, params, title, alive, go, me, query } = ctx;
   el.innerHTML = skel.page().s;
   let d;
   try { d = await store.fetchOnce('bank:' + params.id, () => api.rpc('bank_detail', { id: params.id })); }
@@ -214,12 +214,12 @@ export default async function (ctx) {
   const flush = async () => { if (dirty) await save(); else await chain; };
 
   const select = async (i) => { if (i === cur) return; await flush(); cur = Math.max(0, Math.min(soal.length - 1, i)); paintList(); paintEditor(); paintPreview(); $('#ed', el).scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
-  const addQ = async (base) => {
+  const addQ = async (base, fresh = false) => {
     if (locked) return;
     await flush();
     try {
       const r = base ? await api.rpc('question_duplicate', { id: base.id })
-        : await api.rpc('question_save', { p: { bank_id: bank.id, teks: '', opsi: LETTERS.slice(0, 5).map((k) => ({ k, t: '' })), bobot: 1, tingkat: 'sedang', wacana_id: q()?.wacana_id || '' } });
+        : await api.rpc('question_save', { p: { bank_id: bank.id, teks: '', opsi: LETTERS.slice(0, 5).map((k) => ({ k, t: '' })), bobot: 1, tingkat: 'sedang', wacana_id: fresh ? '' : q()?.wacana_id || '' } });
       soal.splice(base ? cur + 1 : soal.length, 0, r);
       cur = base ? cur + 1 : soal.length - 1;
       paintAll();
@@ -266,7 +266,14 @@ export default async function (ctx) {
   }
 
   paintAll();
-  if (!soal.length && !locked) { /* tampilkan keadaan kosong */ }
+  // Dari menu "Tulis Soal" / bank baru: langsung ke soal kosong di akhir bank
+  if (query?.tulis) {
+    history.replaceState(history.state, '', '#/bank/' + bank.id);
+    const kosong = (x) => x && !stripped(x.teks) && !x.audio_url && !(x.opsi || []).some((o) => stripped(o.t));
+    if (locked) toast('Bank soal terkunci', 'Bank ini sedang dipakai ujian. Duplikat dulu untuk menulis soal baru.', 'warn', 7000);
+    else if (kosong(soal[soal.length - 1])) { cur = soal.length - 1; paintAll(); setTimeout(() => $('#teks', el)?.focus(), 50); }
+    else await addQ(null, true);
+  }
 
   let lastRte = null;
   const offs = [
