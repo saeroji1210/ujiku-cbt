@@ -2,8 +2,11 @@
 import * as api from '../core/api.js';
 import { html, raw, icon, $, $$, on, fmt, sanitize, modal, toast } from '../core/ui.js';
 import { pkgKey, savePkg, enterFullscreen } from './ps-mulai.js';
+import { examAudio } from '../lib/audio.js';
 
 const LET = ['A', 'B', 'C', 'D', 'E', 'F'];
+const plainLen = (h) => String(h || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim().length;
+const firstImg = (h) => (String(h || '').match(/<img[^>]*\ssrc="([^"]+)"/i) || [])[1] || '';
 const readLS = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 
 export default async function (ctx) {
@@ -15,7 +18,9 @@ export default async function (ctx) {
     catch (e) { if (e.hint === 'selesai') return go('/ujian/' + params.id + '/hasil', { replace: true }); return go('/ujian/' + params.id, { replace: true }); }
   }
   if (!alive()) return;
-  const sid = pkg.sesi.id, U = pkg.ujian, soal = pkg.soal;
+  const sid = pkg.sesi.id, U = pkg.ujian, soal = pkg.soal, WAC = pkg.wacana || {};
+  const wcOpen = {};
+  const AUD = examAudio(sid);
   const QK = 'ujk.ans.' + sid, EK = 'ujk.ev.' + sid;
   const ans = {};
   for (const [q, v] of Object.entries(pkg.jawaban || {})) ans[q] = { a: v.a || null, r: !!v.r };
@@ -42,7 +47,7 @@ export default async function (ctx) {
       <div class="ex-prog"><i id="prog"></i></div>
       <div class="ex-top-in small" style="padding-top:6px;padding-bottom:8px"><span class="muted">Kemajuan pengerjaan</span><span class="spacer"></span><b class="c-primary" id="progtxt"></b></div></div>
     <div class="ex-body">
-      <div class="col gap-16"><div id="banner"></div><div class="ex-q" id="q" style="--fs:${font}"></div></div>
+      <div class="col gap-16"><div id="banner"></div><div id="wc"></div><div class="ex-q" id="q" style="--fs:${font}"></div></div>
       <aside class="ex-side card"><div class="row"><b>Nomor Soal</b><span class="spacer"></span>
           <div class="row gap-4"><button class="btn ghost sm" data-font="-1" aria-label="Perkecil huruf">A−</button><button class="btn ghost sm" data-font="1" aria-label="Perbesar huruf">A+</button></div></div>
         <div class="qnum-grid mt-16" id="grid"></div>
@@ -54,15 +59,34 @@ export default async function (ctx) {
       <button class="btn primary" data-nav="1" id="next"></button></div></div></div>`.s;
 
   // ---------------- Render ----------------
+  // Wacana bersama: tampil di atas soal selama soal-soal sewacana dikerjakan
+  const paintWacana = (q) => {
+    const box = $('#wc', el); const w = q.w ? WAC[q.w] : null;
+    if (!w) { box.innerHTML = ''; return; }
+    let a = cur, b = cur;
+    while (a > 0 && soal[a - 1].w === q.w) a--;
+    while (b < soal.length - 1 && soal[b + 1].w === q.w) b++;
+    const teks = sanitize(w.teks);
+    box.innerHTML = html`<details class="ex-wc" ${wcOpen[q.w] === false ? '' : 'open'}><summary>${icon(w.audio ? 'headphones' : 'article')}<b class="ellipsis">${w.judul || (w.audio ? 'Audio' : 'Wacana')}</b>
+        <span class="muted small">${a === b ? 'Untuk soal no. ' + (a + 1) : 'Untuk soal no. ' + (a + 1) + '–' + (b + 1)}</span></summary>
+      ${w.audio ? AUD.widget(w.audio, w.audio_maks, 'Dengarkan') : ''}
+      ${plainLen(teks) || /<img/i.test(teks) ? html`<div class="q-html" style="font-size:calc(17px * ${font})">${raw(teks)}</div>` : ''}</details>`.s;
+    const d = $('details', box); d.addEventListener('toggle', () => { wcOpen[q.w] = d.open; });
+    $$('.q-html img', box).forEach((im) => { im.dataset.zoom = im.src; im.style.cursor = 'zoom-in'; });
+  };
   const paintQ = () => {
     const q = soal[cur]; const a = ans[q.id] || {};
+    const imgGrid = q.opsi.length >= 2 && q.opsi.every((o) => /<img/i.test(o.t) && plainLen(o.t) <= 40);
+    paintWacana(q);
     $('#q', el).innerHTML = html`<div class="q-meta"><span class="q-no">Soal No. ${cur + 1}</span>${q.bobot && Number(q.bobot) !== 1 ? html`<span class="badge b-blue" style="height:30px">Bobot: ${fmt.num(q.bobot, 1)} poin</span>` : ''}
         ${a.r ? html`<span class="badge b-orange" style="height:30px">${icon('flag')} Ragu-ragu</span>` : ''}</div>
+      ${q.audio_url ? AUD.widget(q.audio_url, q.audio_maks, 'Audio soal') : ''}
       <div class="q-html" style="font-size:calc(18px * ${font})">${raw(sanitize(q.teks))}</div>
       ${q.gambar_url ? html`<div class="q-img" data-zoom="${q.gambar_url}"><img src="${q.gambar_url}" alt="Gambar soal" loading="eager"></div>` : ''}
-      <div class="opts" role="radiogroup" aria-label="Pilihan jawaban">${q.opsi.map((o, i) => html`<button class="opt ${a.a === o.k ? 'on' : ''}" data-k="${o.k}" role="radio" aria-checked="${a.a === o.k}" style="font-size:calc(17px * ${font})">
-        <span class="lt">${LET[i]}</span><span class="ot">${raw(sanitize(o.t))}</span>${icon('check_circle', 'ck fill')}</button>`)}</div>`.s;
+      <div class="opts ${imgGrid ? 'img-grid' : ''}" role="radiogroup" aria-label="Pilihan jawaban">${q.opsi.map((o, i) => { const t = sanitize(o.t), im = firstImg(t); return html`<button class="opt ${a.a === o.k ? 'on' : ''}" data-k="${o.k}" role="radio" aria-checked="${a.a === o.k}" style="font-size:calc(17px * ${font})">
+        <span class="lt">${LET[i]}</span><span class="ot">${raw(t)}</span>${im ? html`<span class="zo" data-zoom="${im}" role="button" aria-label="Perbesar gambar opsi ${LET[i]}">${icon('zoom_in')}</span>` : ''}${icon('check_circle', 'ck fill')}</button>`; })}</div>`.s;
     $$('#q .q-html img', el).forEach((im) => { im.dataset.zoom = im.src; im.style.cursor = 'zoom-in'; });
+    AUD.bind(el);
     const last = cur === soal.length - 1;
     $('#next', el).className = 'btn ' + (last ? 'success' : 'primary');
     $('#next', el).innerHTML = last ? html`${icon('task_alt')}<span>Selesai</span>`.s : html`<span>Berikut</span>${icon('chevron_right')}`.s;
@@ -190,6 +214,7 @@ export default async function (ctx) {
   let lockEl = null;
   function showLock() {
     if (lockEl) return;
+    AUD.stopAll();
     lockEl = document.createElement('div');
     lockEl.className = 'lock-screen';
     lockEl.innerHTML = html`<div class="p-card" style="max-width:420px;text-align:center;padding:28px"><div class="icon-tile" style="margin:0 auto;width:84px;height:84px;border-radius:50%;background:var(--red)">${icon('lock')}</div>
@@ -203,10 +228,10 @@ export default async function (ctx) {
     lockEl.remove(); lockEl = null; clearInterval(lockPoll);
     toast('Pengawas mengizinkan', 'Silakan lanjutkan ujian.', 'ok'); enterFullscreen();
   }
-  const cleanupStore = () => { localStorage.removeItem(QK); localStorage.removeItem(EK); localStorage.removeItem(pkgKey(params.id)); sessionStorage.removeItem('ujk.cur.' + sid); };
+  const cleanupStore = () => { localStorage.removeItem('ujk.aud.' + sid); localStorage.removeItem(QK); localStorage.removeItem(EK); localStorage.removeItem(pkgKey(params.id)); sessionStorage.removeItem('ujk.cur.' + sid); };
   async function finish(auto) {
     if (finishing) return;
-    finishing = true;
+    finishing = true; AUD.stopAll();
     const ov = document.createElement('div');
     ov.className = 'lock-screen';
     const msg = (t, s) => { ov.innerHTML = html`<div class="p-card" style="max-width:420px;text-align:center;padding:28px"><span class="spin" style="color:var(--primary);width:36px;height:36px;margin:0 auto"></span>
@@ -259,7 +284,9 @@ export default async function (ctx) {
   paintQ(); paintGrid(); paintBanner(); setSave(Object.keys(pending).length ? 'saving' : 'ok'); paintTimer();
   if (status === 'terkunci') showLock();
   const offs = [
-    on(el, 'click', '.opt', (e, b) => { setAns({ a: b.dataset.k }); paintQ(); paintGrid(); }),
+    on(el, 'click', '.opt', (e, b) => { if (e.target.closest('[data-zoom]')) return; setAns({ a: b.dataset.k }); paintQ(); paintGrid(); }),
+    on(el, 'click', '[data-aud-play]', (e, b) => AUD.toggle(b.closest('[data-aud]'))),
+    on(el, 'click', '[data-aud-seek]', (e, b) => AUD.seek(b, e)),
     on(el, 'click', '[data-nav]', (e, b) => { const d = +b.dataset.nav; if (d > 0 && cur === soal.length - 1) return confirmFinish(); goQ(cur + d); }),
     on(el, 'click', '[data-doubt]', () => { setAns({ r: !ans[soal[cur].id]?.r }); paintQ(); paintGrid(); }),
     on(el, 'click', '[data-go]', (e, b) => goQ(+b.dataset.go)),
@@ -284,6 +311,7 @@ export default async function (ctx) {
   flush();
   return () => {
     clearInterval(tick); clearInterval(pump); clearInterval(poll); clearInterval(lockPoll); clearTimeout(flushT);
+    AUD.stopAll();
     if (!finishing && Object.keys(pending).length) flush();
     lockEl?.remove();
     offs.forEach((f) => f());
