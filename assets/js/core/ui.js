@@ -80,6 +80,7 @@ const STATUS = {
   terbit: ['b-blue', 'Terbit'], terjadwal: ['b-blue', 'Terjadwal'], berlangsung: ['b-blue', 'Berlangsung'], berakhir: ['b-yellow', 'Menunggu Ditutup'],
   selesai: ['b-green', 'Selesai'], dibatalkan: ['b-red', 'Dibatalkan'],
   menunggu: ['b-yellow', 'Menunggu'], disetujui: ['b-green', 'Disetujui'], ditolak: ['b-red', 'Ditolak'],
+  antre: ['b-blue', 'Mengantre'], dikirim: ['b-green', 'Terkirim'], gagal: ['b-red', 'Gagal'],
   belum: ['b-gray', 'Belum Mulai'], mengerjakan: ['b-blue', 'Mengerjakan'], online: ['b-green', 'Online'], offline: ['b-red', 'Offline'],
 };
 export function badge(status, label, dot = true) {
