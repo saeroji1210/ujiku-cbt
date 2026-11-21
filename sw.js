@@ -1,7 +1,7 @@
 // Service worker: simpan cangkang aplikasi agar terbuka cepat & tetap tampil saat sinyal lemah.
 // Data (RPC Supabase) TIDAK pernah di-cache di sini.
-const CACHE = 'ujiku-v11';
-const SHELL = ['./', './index.html', './assets/css/app.css?v=4', './assets/js/app.js', './assets/js/core/api.js', './assets/js/core/ui.js', './assets/js/core/store.js', './assets/js/core/icons.js', './assets/js/core/art.js', './assets/img/icon.svg'];
+const CACHE = 'ujiku-v12';
+const SHELL = ['./', './index.html', './assets/css/app.css?v=5', './assets/js/app.js', './assets/js/core/api.js', './assets/js/core/ui.js', './assets/js/core/store.js', './assets/js/core/icons.js', './assets/js/core/art.js', './assets/img/icon.svg'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
