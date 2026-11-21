@@ -1,7 +1,6 @@
 import * as api from '../core/api.js';
 import * as store from '../core/store.js';
 import { html, raw, icon, $, fmt, mapelColor, mapelIcon, badge, skel, empty } from '../core/ui.js';
-import { HERO } from '../core/art.js';
 
 const KEY = 'gr_dashboard';
 const load = () => api.rpc('gr_dashboard');
@@ -17,8 +16,8 @@ export default async function (ctx) {
     const total = d.bank.reduce((s, b) => s + b.jumlah, 0);
     el.innerHTML = html`<section class="banner"><div class="b-txt"><span class="b-pill"><i></i> Ruang Guru</span><h1>Halo, ${sapa}!</h1>
         <p>${d.tanpa_kunci ? html`Ada <b>${d.tanpa_kunci} soal</b> yang belum diberi kunci jawaban.` : total ? 'Semua soal Anda sudah memiliki kunci jawaban. Mantap!' : 'Yuk mulai menyusun bank soal pertama Anda.'}</p>
-        <div class="row wrap gap-8 mt-16"><a class="btn" style="background:#fff;color:var(--primary)" href="#/bank?baru=1">${icon('library_add')} Bank Soal Baru</a>
-          <a class="btn" style="background:rgba(255,255,255,.18);color:#fff" href="#/impor">${icon('upload_file')} Impor Word</a></div></div><div class="b-art">${raw(HERO)}</div></section>
+        <div class="row wrap gap-8 mt-16"><a class="btn" style="background:#fff;color:var(--primary)" href="#/tulis">${icon('edit_note')} Tulis Soal</a>
+          <a class="btn" style="background:rgba(255,255,255,.18);color:#fff" href="#/impor">${icon('upload_file')} Impor Word</a></div></div></section>
       <div class="row wrap gap-8 mt-16"><span class="muted semi">Penugasan:</span>${d.penugasan.length ? d.penugasan.map((p) => html`<span class="badge" style="background:${mapelColor(p.mapel)}1A;color:${mapelColor(p.mapel)};height:28px;padding:0 12px">${icon(mapelIcon(p.mapel))} ${p.mapel}${p.kelas ? ' · Kelas ' + p.kelas : ''}</span>`)
         : html`<span class="badge b-orange">Belum ada penugasan — hubungi admin lembaga</span>`}</div>
       <div class="section-title"><span class="bar"></span><h2>Bank Soal Saya</h2><span class="spacer"></span><a class="link-more" href="#/bank">Lihat Semua ${icon('arrow_forward')}</a></div>
