@@ -17,7 +17,7 @@ export default async function (ctx) {
 
   el.innerHTML = html`<div class="page-head"><div><div class="crumb">${mode === 'guru' ? 'Ruang Guru' : 'Ujian'} › <b>Impor Word (.docx)</b></div>
       <h1>Impor Soal dari Microsoft Word (.docx)</h1><div class="sub">Unggah puluhan butir soal lengkap dengan gambar dan kunci jawaban dalam satu langkah.</div></div>
-      <span class="spacer"></span><a class="btn secondary lg" href="assets/templat/templat-soal-ujiku.docx" download>${icon('download')} Unduh Templat Word (.docx)</a></div>
+      <span class="spacer"></span><a class="btn ghost lg" href="#/tulis">${icon('edit_note')} Tulis manual</a><a class="btn secondary lg" href="assets/templat/templat-soal-ujiku.docx" download>${icon('download')} Unduh Templat Word (.docx)</a></div>
     <div class="card stepper" style="--n:3;margin-bottom:20px" id="steps"></div>
     <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);margin-bottom:20px" id="top">
       <div class="card"><div class="tiny bold muted" style="letter-spacing:.08em">PILIH BANK SOAL TUJUAN</div>
